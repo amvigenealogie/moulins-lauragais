@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le site des Moulins & Meuniers du Lauragais</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --primary: #8b5a2b;
+            --primary-light: #f5f0eb;
+            --accent: #d2b48c;
+            --text: #3e2723;
+            --bg: #faf8f5;
+            --card-bg: #ffffff;
+            --admin-color: #2c3e50;
+            --danger: #c0392b;
+            --success: #27ae60;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background-color: var(--bg); color: var(--text); line-height: 1.6; }
+
+        header {
+            background: linear-gradient(rgba(139, 90, 43, 0.85), rgba(62, 39, 35, 0.95)), url('https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=1000') center/cover;
+            color: white; padding: 30px 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        header h1 { font-size: 2.5rem; margin-bottom: 5px; }
+        header p { font-style: italic; font-size: 1.1rem; color: var(--accent); margin-bottom: 15px; }
+
+        .admin-top-link {
+            display: inline-block; background-color: var(--admin-color); color: white;
+            padding: 8px 18px; border-radius: 20px; text-decoration: none; font-size: 0.9rem;
+            cursor: pointer; font-weight: bold; border: 2px solid white; box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .admin-top-link:hover { background-color: #34495e; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+
+        #map-container {
+            margin-bottom: 30px; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08); border: 3px solid var(--primary);
+            background-color: #e0dcd3; min-height: 400px;
+        }
+
+        #map { height: 400px; width: 100%; }
+
+        .welcome-box {
+            background-color: var(--primary-light);
+            border-left: 6px solid var(--primary);
+            padding: 25px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.03);
+        }
+        .welcome-box p {
+            font-size: 1.1rem;
+            color: var(--text);
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        .welcome-box .signature {
+            font-family: 'Georgia', serif;
+            font-style: italic;
+            font-weight: bold;
+            text-align: right;
+            color: var(--primary);
+            font-size: 1.2rem;
+            margin-top: 15px;
+        }
+
+        .search-bar-container {
+            background-color: var(--card-bg); padding: 20px; border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 30px; display: flex; gap: 15px; flex-wrap: wrap; align-items: center;
+        }
+
+        .search-bar-container input, .search-bar-container select {
+            padding: 12px; border: 2px solid #e0dcd3; border-radius: 8px; font-size: 1rem; outline: none; color: var(--text);
+        }
+        .search-bar-container input { flex: 2; min-width: 250px; }
+        .search-bar-container select { flex: 1; min-width: 180px; background-color: white; cursor: pointer; }
+
+        .data-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 25px; }
+
+        .card {
+            background-color: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.04);
+            border-top: 5px solid var(--primary); padding: 20px; transition: transform 0.2s; cursor: pointer;
+        }
+        .card:hover { transform: translateY(-5px); background-color: var(--primary-light); }
+        .card h3 { color: var(--primary); font-size: 1.3rem; margin-bottom: 8px; }
+
+        .badge { display: inline-block; padding: 4px 8px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; }
+        .badge-vent { background-color: #e3f2fd; color: #1e88e5; }
+        .badge-eau { background-color: #e8f5e9; color: #43a047; }
+
+        .info-line { margin-bottom: 8px; font-size: 0.95rem; }
+        .info-line strong { color: #5d4037; }
+
+        /* Style des boutons de lien URL externe */
+        .btn-link {
+            display: inline-block; margin-top: 10px; background: #fff; color: var(--primary);
+            border: 1px solid var(--primary); padding: 6px 12px; border-radius: 6px;
+            text-decoration: none; font-size: 0.85rem; font-weight: bold; transition: all 0.2s;
+        }
+        .btn-link:hover { background: var(--primary); color: #fff; }
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(62, 39, 35, 0.7); display: none; justify-content: center; align-items: center; z-index: 9999; padding: 20px;
+        }
+
+        .modal-content { background-color: white; width: 100%; max-width: 700px; max-height: 90vh; border-radius: 16px; overflow-y: auto; position: relative; }
+        .close-btn { position: absolute; top: 15px; right: 15px; background: #fff; border: none; border-radius: 50%; width: 40px; height: 40px; font-size: 1.5rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 10; }
+
+        .admin-header { background-color: var(--admin-color); color: white; padding: 20px; font-size: 1.4rem; font-weight: bold; }
+        .admin-body { padding: 25px; }
+        .admin-tabs { display: flex; border-bottom: 2px solid var(--admin-color); }
+        .admin-tab-btn { flex: 1; padding: 12px; border: none; background: #e2e6e9; font-weight: bold; cursor: pointer; }
+        .admin-tab-btn.active { background-color: var(--admin-color); color: white; }
+
+        .form-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+        .form-group label { font-weight: bold; margin-bottom: 5px; }
+        .form-group input, .form-group select, .form-group textarea { padding: 10px; border: 1px solid #ccc; border-radius: 6px; }
+        .form-row { display: flex; gap: 15px; }
+        .form-row .form-group { flex: 1; }
+        
+        .btn { background-color: var(--primary); color: white; padding: 12px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-admin { background-color: var(--admin-color); width: 100%; margin-top: 10px;}
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-success { background-color: var(--success); color: white; margin-bottom: 15px; width: 100%; }
+
+        .preview-gallery { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        
+        .img-preview { 
+            height: 80px; width: 110px; object-fit: cover; border-radius: 6px; 
+            border: 2px solid var(--accent); cursor: pointer; transition: transform 0.2s, border-color 0.2s;
+        }
+        .img-preview:hover { transform: scale(1.05); border-color: var(--primary); }
+
+        .lightbox-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.9); display: none;
+            justify-content: center; align-items: center; z-index: 100000; cursor: zoom-out;
+        }
+        .lightbox-img {
+            max-width: 90%; max-height: 90vh; object-fit: contain;
+            border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            animation: zoomInEffect 0.25s ease-out;
+        }
+        @keyframes zoomInEffect { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        .moulin-edit-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; border-bottom: 1px solid #eee; }
+        .edit-item-actions { display: flex; gap: 8px; }
+        .btn-small { padding: 6px 12px; font-size: 0.85rem; border-radius: 4px; border: none; cursor: pointer; color: white;}
+
+        .no-results { text-align: center; grid-column: 1 / -1; padding: 40px; font-size: 1.2rem; color: #a1887f; }
+
+        footer { 
+            background-color: #3e2723; color: #f5f0eb; padding: 40px 20px; margin-top: 50px; 
+            border-top: 6px solid var(--primary); text-align: center;
+        }
+        .footer-content { max-width: 600px; margin: 0 auto; text-align: left; }
+        .footer-content h3 { color: var(--accent); text-align: center; margin-bottom: 15px; font-size: 1.4rem; }
+        
+        .contact-form { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin-bottom: 25px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+        .contact-form .form-group label { color: var(--accent); font-size: 0.9rem; }
+        .contact-form input, .contact-form textarea { background: #faf8f5; color: #3e2723; font-size: 0.95rem; margin-top: 4px; border: none; }
+        .btn-contact { background-color: var(--primary); width: 100%; transition: background 0.2s; padding: 10px; }
+        .btn-contact:hover { background-color: #a06d3b; }
+        
+        .copyright { text-align: center; font-size: 0.9rem; color: var(--accent); border-top: 1px solid rgba(210, 180, 140, 0.3); padding-top: 20px; margin-top: 10px; font-weight: 500; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Le Site des Moulins & Meuniers du Lauragais</h1>
+        <p>Découvrez l'histoire de nos moulins</p>
+        <button class="admin-top-link" id="direct-admin-btn">⚙️ Espace Gestionnaire (Accès Direct)</button>
+    </header>
+
+    <div class="container">
+        <div id="map-container">
+            <div id="map"></div>
+        </div>
+
+        <div class="welcome-box">
+            <p>Bienvenue sur ce site qui est là pour vous faire découvrir les Moulins du Lauragais. Descendants de Meuniers, nous avons voulu leur rendre un dernier hommage. N'hésitez pas à nous envoyer vos remarques, infos ou photos pour compléter ou rectifier les informations contenues dans ce site.</p>
+            <div class="signature">Marie et Gilles</div>
+        </div>
+
+        <div class="search-bar-container">
+            <input type="text" id="search-input" placeholder="Entrez un mot-clé (ex: Nailloux, meunier...)" oninput="filterData()">
+            <select id="type-filter" onchange="filterData()">
+                <option value="all">Tous les types</option>
+                <option value="Vent">Moulins à Vent</option>
+                <option value="Eau">Moulins à Eau</option>
+            </select>
+        </div>
+
+        <div class="data-grid" id="moulins-list">
+            <div class="no-results">Saisissez une recherche ou choisissez un type de moulin pour afficher les résultats.</div>
+        </div>
+    </div>
+
+    <div id="admin-page" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal('admin-page')">×</button>
+            
+            <div id="admin-login-box">
+                <div class="admin-header">🔑 Connexion Espace Privé</div>
+                <div class="admin-body">
+                    <div class="form-group">
+                        <label>Mot de passe super-administrateur :</label>
+                        <input type="password" id="admin-password-input" placeholder="Entrez le mot de passe">
+                    </div>
+                    <button class="btn btn-admin" onclick="checkAdminPassword()">Se connecter</button>
+                </div>
+            </div>
+
+            <div id="admin-panel-box" style="display: none;">
+                <div class="admin-tabs">
+                    <button id="tab-add" class="admin-tab-btn active" onclick="switchTab('add')">➕ Ajouter un moulin</button>
+                    <button id="tab-manage" class="admin-tab-btn" onclick="switchTab('manage')">📝 Gérer & Sauvegarder</button>
+                </div>
+
+                <div id="admin-tab-content-form" class="admin-body">
+                    <h3 id="form-action-title" style="margin-bottom:15px; color:var(--admin-color)">Ajouter une nouvelle fiche</h3>
+                    <form id="add-moulin-form" onsubmit="saveMoulinForm(event)">
+                        <input type="hidden" id="edit-id" value="">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nom du Moulin *</label>
+                                <input type="text" id="add-nom" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Type *</label>
+                                <select id="add-type" required>
+                                    <option value="Vent">À Vent</option>
+                                    <option value="Eau">À Eau</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Commune *</label>
+                                <input type="text" id="add-commune" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Époque / Siècle</label>
+                                <input type="text" id="add-siecles">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>État du bâtiment</label>
+                                <input type="text" id="add-etat">
+                            </div>
+                            <div class="form-group">
+                                <label>Nom du Meunier</label>
+                                <input type="text" id="add-meunier">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Latitude</label>
+                                <input type="number" step="any" id="add-lat" value="43.35">
+                            </div>
+                            <div class="form-group">
+                                <label>Longitude</label>
+                                <input type="number" step="any" id="add-lng" value="1.62">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Lien internet externe optionnel (ex: https://moulin-lauragais.fr)</label>
+                            <input type="url" id="add-url" placeholder="https://...">
+                        </div>
+                        <div class="form-group">
+                            <label>Photos (Sélectionnez de nouveaux fichiers pour les ajouter à la suite)</label>
+                            <input type="file" id="add-image-file" accept="image/*" multiple onchange="previewAndCompressImages(this)">
+                            
+                            <div style="margin-top: 8px;">
+                                <button type="button" class="btn-small" style="background-color: var(--danger);" onclick="clearFormPhotos()">🗑️ Supprimer toutes les photos de cette fiche</button>
+                            </div>
+                            
+                            <div id="add-gallery-preview" class="preview-gallery"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Histoire & Anecdotes *</label>
+                            <textarea id="add-histoire" rows="4" required></textarea>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <button type="button" id="btn-cancel-edit" class="btn btn-danger" style="display:none;" onclick="cancelEditing()">Annuler</button>
+                            <button type="submit" class="btn" style="flex:1;">Valider la fiche</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="admin-tab-content-list" class="admin-body" style="display: none;">
+                    <button class="btn btn-success" onclick="downloadBackupFile()">💾 Télécharger la sauvegarde intégrale (.json)</button>
+                    <div style="border-top:2px dashed #ccc; margin-top:10px; padding-top:15px;">
+                        <h3 style="margin-bottom:15px; color:var(--admin-color)">Fiches actives</h3>
+                        <div id="admin-moulins-list-edit"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="detail-page" class="modal-overlay">
+        <div class="modal-content" style="padding:20px;">
+            <button class="close-btn" onclick="closeModal('detail-page')">×</button>
+            <h2 id="detail-title" style="color:var(--primary); margin-bottom:15px;"></h2>
+            <div class="info-line"><strong>📍 Commune :</strong> <span id="detail-commune"></span></div>
+            <div class="info-line"><strong>⏳ Époque :</strong> <span id="detail-siecles"></span></div>
+            <div class="info-line"><strong>⚙️ État :</strong> <span id="detail-etat"></span></div>
+            <div class="info-line"><strong>👤 Meunier :</strong> <span id="detail-meunier"></span></div>
+            <div id="detail-url-container"></div>
+            <hr style="margin:15px 0; border:0; border-top:1px solid #ccc;">
+            <p id="detail-histoire" style="white-space: pre-line; margin-bottom: 15px;"></p>
+            
+            <h4 id="photo-title-section" style="margin-top:15px; font-size:0.9rem; color:var(--primary); display:none;">📸 Galerie de photos (Cliquez sur une image pour l'agrandir) :</h4>
+            <div id="detail-images-container" class="preview-gallery" style="margin-top:8px;"></div>
+        </div>
+    </div>
+
+    <div id="lightbox" class="lightbox-overlay" onclick="closeLightbox()">
+        <img id="lightbox-img" class="lightbox-img" src="" alt="Image agrandie">
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <h3>✉️ Nous contacter</h3>
+            <form class="contact-form" onsubmit="sendContactEmail(event)">
+                <div class="form-group">
+                    <label>Votre Nom / Organisation :</label>
+                    <input type="text" id="contact-name" required placeholder="Ex: Jean Dupont">
+                </div>
+                <div class="form-group">
+                    <label>Votre adresse e-mail :</label>
+                    <input type="email" id="contact-email" required placeholder="Ex: jean.dupont@exemple.com">
+                </div>
+                <div class="form-group">
+                    <label>Votre message :</label>
+                    <textarea id="contact-message" rows="4" required placeholder="Tapez votre message ici..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-contact">Envoyer le message</button>
+            </form>
+        </div>
+        <div class="copyright">
+            © 2026 Copyright Amvi corporation
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        const SECRET_KEY = "31lagarde";
+
+        const fallbackDatabase = [
+            {"id":1,"nom":"Moulin de Six Ailes","commune":"Nailloux","type":"Vent","etat":"Restauré","siecles":"XXIe s.","coordonnees":[43.3542,1.6242],"images":[],"histoire":"Ce moulin possède 6 ailes rutilantes.","meunier":"Famille Pastre","url":""},
+            {"id":2,"nom":"Moulin de la Glacière","commune":"Castelnaudary","type":"Vent","etat":"Restauré","siecles":"XVIIe s.","coordonnees":[43.3182,1.9532],"images":[],"histoire":"Érigé tout près du Canal du Midi.","meunier":"Jean-Pierre Vidal","url":""}
+        ];
+
+        let database = fallbackDatabase;
+        try {
+            let localData = localStorage.getItem('moulins_backup_data');
+            if (localData) { database = JSON.parse(localData); }
+        } catch (e) {
+            database = fallbackDatabase;
+        }
+
+        let tempLoadedImagesBase64 = [];
+
+        document.getElementById('direct-admin-btn').addEventListener('click', function() {
+            openAdminModal();
+        });
+
+        let map = null;
+        let markersGroup = null;
+
+        try {
+            map = L.map('map').setView([43.38, 1.75], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            markersGroup = L.layerGroup().addTo(map);
+            renderMapMarkers();
+        } catch (e) {
+            document.getElementById('map-container').innerHTML = `
+                <div style="padding:60px 20px; text-align:center; color:#5d4037; font-weight:bold;">
+                    📍 Mode local restreint par votre navigateur<br>
+                    <span style="font-weight:normal; font-size:0.9rem; color:#777;">
+                        La carte dynamique n'a pas pu être chargée depuis internet. Cependant, le moteur de recherche et l'Espace Gestionnaire fonctionnent à 100% !
+                    </span>
+                </div>`;
+        }
+
+        function renderMapMarkers() {
+            if (!markersGroup || !map) return;
+            markersGroup.clearLayers();
+            database.forEach(item => {
+                const color = item.type === 'Vent' ? '#1e88e5' : '#43a047';
+                const icon = L.divIcon({
+                    className: 'custom-pin',
+                    html: `<div style="background-color: ${color}; width:14px; height:14px; border-radius:50%; border:2px solid white;"></div>`
+                });
+                
+                let popupHtml = `<b>${item.nom}</b><br><button onclick="openDetailPage(${item.id})" style="margin-top:5px; padding:2px 5px; cursor:pointer;">Voir la fiche</button>`;
+                if(item.url && item.url.trim() !== "") {
+                    popupHtml += `<br><a href="${item.url}" target="_blank" style="font-size:0.8rem; display:inline-block; margin-top:5px; color:#8b5a2b; font-weight:bold;">🔗 Plus d'infos</a>`;
+                }
+
+                L.marker(item.coordonnees, { icon: icon })
+                    .bindPopup(popupHtml)
+                    .addTo(markersGroup);
+            });
+        }
+
+        function filterData() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const type = document.getElementById('type-filter').value;
+            const container = document.getElementById('moulins-list');
+
+            if (query === "" && type === "all") {
+                container.innerHTML = '<div class="no-results">Saisissez une recherche ou choisissez un type de moulin pour afficher les résultats.</div>';
+                return;
+            }
+
+            const filtered = database.filter(item => {
+                const matchesType = (type === 'all' || item.type === type);
+                return matchesType && (
+                    (item.nom && item.nom.toLowerCase().includes(query)) ||
+                    (item.commune && item.commune.toLowerCase().includes(query)) ||
+                    (item.meunier && item.meunier.toLowerCase().includes(query)) ||
+                    (item.histoire && item.histoire.toLowerCase().includes(query))
+                );
+            });
+
+            container.innerHTML = '';
+            if (filtered.length === 0) {
+                container.innerHTML = '<div class="no-results">Aucun résultat trouvé.</div>';
+                return;
+            }
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.setAttribute('onclick', `openDetailPage(${item.id})`);
+                
+                let cardHtml = `
+                    <span class="badge badge-${item.type.toLowerCase()}">Moulin à ${item.type}</span>
+                    <h3>${item.nom}</h3>
+                    <div class="info-line"><strong>📍 Commune :</strong> ${item.commune}</div>
+                    <div class="info-line"><strong>👤 Meunier :</strong> ${item.meunier || "Non renseigné"}</div>
+                `;
+
+                if(item.url && item.url.trim() !== "") {
+                    cardHtml += `<a href="${item.url}" target="_blank" class="btn-link" onclick="event.stopPropagation();">🔗 Plus d'infos sur ce moulin</a>`;
+                }
+
+                cardHtml += `<p style="font-size:0.8rem; text-align:right; color:var(--primary); margin-top:10px;">Cliquez pour voir ➔</p>`;
+                card.innerHTML = cardHtml;
+                container.appendChild(card);
+            });
+        }
+
+        function openDetailPage(id) {
+            const item = database.find(m => m.id === id);
+            if (!item) return;
+
+            document.getElementById('detail-title').innerText = item.nom;
+            document.getElementById('detail-commune').innerText = item.commune;
+            document.getElementById('detail-siecles').innerText = item.siecles || "Inconnu";
+            document.getElementById('detail-etat').innerText = item.etat || "Non renseigné";
+            document.getElementById('detail-meunier').innerText = item.meunier || "Non référencé";
+            document.getElementById('detail-histoire').innerText = item.histoire;
+
+            // Ajout du bouton URL externe dynamique dans les détails
+            const urlContainer = document.getElementById('detail-url-container');
+            urlContainer.innerHTML = '';
+            if(item.url && item.url.trim() !== "") {
+                urlContainer.innerHTML = `<a href="${item.url}" target="_blank" class="btn-link">🔗 Plus d'infos sur ce moulin (Lien externe)</a>`;
+            }
+
+            const imgContainer = document.getElementById('detail-images-container');
+            const photoTitle = document.getElementById('photo-title-section');
+            imgContainer.innerHTML = '';
+            
+            const imagesToDisplay = item.images || [];
+            if (imagesToDisplay.length > 0) {
+                photoTitle.style.display = 'block';
+                imagesToDisplay.forEach(src => {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.className = 'img-preview';
+                    img.setAttribute('onclick', `zoomImage('${src}')`);
+                    imgContainer.appendChild(img);
+                });
+            } else {
+                photoTitle.style.display = 'none';
+            }
+
+            document.getElementById('detail-page').style.display = 'flex';
+        }
+
+        function zoomImage(imageSrc) {
+            document.getElementById('lightbox-img').src = imageSrc;
+            document.getElementById('lightbox').style.display = 'flex';
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').style.display = 'none';
+            document.getElementById('lightbox-img').src = '';
+        }
+
+        function openAdminModal() {
+            document.getElementById('admin-password-input').value = "";
+            document.getElementById('admin-login-box').style.display = 'block';
+            document.getElementById('admin-panel-box').style.display = 'none';
+            document.getElementById('admin-page').style.display = 'flex';
+            cancelEditing();
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        function checkAdminPassword() {
+            if (document.getElementById('admin-password-input').value === SECRET_KEY) {
+                document.getElementById('admin-login-box').style.display = 'none';
+                document.getElementById('admin-panel-box').style.display = 'block';
+                switchTab('add');
+            } else {
+                alert("❌ Mot de passe incorrect !");
+            }
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tab-add').className = tab === 'add' ? 'admin-tab-btn active' : 'admin-tab-btn';
+            document.getElementById('tab-manage').className = tab === 'manage' ? 'admin-tab-btn active' : 'admin-tab-btn';
+            document.getElementById('admin-tab-content-form').style.display = tab === 'add' ? 'block' : 'none';
+            document.getElementById('admin-tab-content-list').style.display = tab === 'manage' ? 'block' : 'none';
+            if(tab === 'manage') updateEditList();
+        }
+
+        function previewAndCompressImages(input) {
+            if (!input.files || input.files.length === 0) return;
+
+            const galleryPreview = document.getElementById('add-gallery-preview');
+
+            Array.from(input.files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const imgElement = new Image();
+                    imgElement.src = e.target.result;
+                    imgElement.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        let width = imgElement.width;
+                        let height = imgElement.height;
+                        const max_size = 600; 
+                        if (width > height) {
+                            if (width > max_size) { height *= max_size / width; width = max_size; }
+                        } else {
+                            if (height > max_size) { width *= max_size / height; height = max_size; }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(imgElement, 0, 0, width, height);
+                        
+                        const optimizedBase64 = canvas.toDataURL('image/jpeg', 0.5);
+                        tempLoadedImagesBase64.push(optimizedBase64);
+                        
+                        const imgThumb = document.createElement('img');
+                        imgThumb.src = optimizedBase64;
+                        imgThumb.className = 'img-preview';
+                        galleryPreview.appendChild(imgThumb);
+                    };
+                };
+                reader.readAsDataURL(file);
+            });
+            input.value = "";
+        }
+
+        function clearFormPhotos() {
+            if(confirm("Voulez-vous enlever toutes les photos affectées à ce formulaire ?")) {
+                tempLoadedImagesBase64 = [];
+                document.getElementById('add-gallery-preview').innerHTML = '';
+            }
+        }
+
+        function updateEditList() {
+            const container = document.getElementById('admin-moulins-list-edit');
+            container.innerHTML = '';
+            database.forEach(m => {
+                const row = document.createElement('div');
+                row.className = 'moulin-edit-item';
+                row.innerHTML = `
+                    <div><strong>${m.nom}</strong> (${m.commune})</div>
+                    <div class="edit-item-actions">
+                        <button class="btn-small" style="background-color:var(--admin-color)" onclick="startEdit(${m.id})">Modifier</button>
+                        <button class="btn-small" style="background-color:var(--danger)" onclick="deleteMoulin(${m.id})">Supprimer</button>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function startEdit(id) {
+            const item = database.find(m => m.id === id);
+            if (!item) return;
+            document.getElementById('edit-id').value = item.id;
+            document.getElementById('add-nom').value = item.nom;
+            document.getElementById('add-type').value = item.type;
+            document.getElementById('add-commune').value = item.commune;
+            document.getElementById('add-siecles').value = item.siecles || '';
+            document.getElementById('add-etat').value = item.etat || '';
+            document.getElementById('add-meunier').value = item.meunier || '';
+            document.getElementById('add-lat').value = item.coordonnees[0];
+            document.getElementById('add-lng').value = item.coordonnees[1];
+            document.getElementById('add-url').value = item.url || ''; // Remplissage URL en modification
+            
+            const galleryPreview = document.getElementById('add-gallery-preview');
+            galleryPreview.innerHTML = '';
+            
+            tempLoadedImagesBase64 = [...(item.images || [])];
+
+            tempLoadedImagesBase64.forEach(src => {
+                const img = document.createElement('img');
+                img.src = src;
+                img.className = 'img-preview';
+                galleryPreview.appendChild(img);
+            });
+
+            document.getElementById('add-histoire').value = item.histoire;
+            document.getElementById('form-action-title').innerText = `Modifier : ${item.nom}`;
+            document.getElementById('btn-cancel-edit').style.display = "inline-block";
+            switchTab('add');
+        }
+
+        function cancelEditing() {
+            document.getElementById('edit-id').value = '';
+            document.getElementById('add-moulin-form').reset();
+            document.getElementById('add-gallery-preview').innerHTML = '';
+            tempLoadedImagesBase64 = [];
+            document.getElementById('form-action-title').innerText = "Ajouter une nouvelle fiche";
+            document.getElementById('btn-cancel-edit').style.display = "none";
+        }
+
+        function deleteMoulin(id) {
+            if (confirm("Supprimer définitivement ?")) {
+                database = database.filter(m => m.id !== id);
+                saveDataSync();
+                updateEditList();
+            }
+        }
+
+        function saveDataSync() {
+            try {
+                localStorage.setItem('moulins_backup_data', JSON.stringify(database));
+                if (renderMapMarkers) renderMapMarkers();
+                filterData();
+            } catch(e) {
+                alert("⚠️ Erreur lors de la synchronisation locale.");
+            }
+        }
+
+        function saveMoulinForm(event) {
+            event.preventDefault();
+            const editId = document.getElementById('edit-id').value;
+            let lat = parseFloat(document.getElementById('add-lat').value) || 43.35;
+            let lng = parseFloat(document.getElementById('add-lng').value) || 1.62;
+
+            const data = {
+                nom: document.getElementById('add-nom').value,
+                type: document.getElementById('add-type').value,
+                commune: document.getElementById('add-commune').value,
+                siecles: document.getElementById('add-siecles').value,
+                etat: document.getElementById('add-etat').value,
+                meunier: document.getElementById('add-meunier').value,
+                coordonnees: [lat, lng],
+                url: document.getElementById('add-url').value, // Sauvegarde de l'URL
+                images: tempLoadedImagesBase64,
+                histoire: document.getElementById('add-histoire').value
+            };
+
+            if (editId) {
+                const idx = database.findIndex(m => m.id == editId);
+                if (idx !== -1) { data.id = parseInt(editId); database[idx] = data; }
+            } else {
+                data.id = Date.now();
+                database.push(data);
+            }
+
+            try {
+                localStorage.setItem('moulins_backup_data', JSON.stringify(database));
+                cancelEditing();
+                switchTab('manage');
+                if (renderMapMarkers) renderMapMarkers();
+                filterData();
+                alert("Fiche enregistrée avec succès !");
+            } catch (e) {
+                alert("⚠️ Mémoire saturée ! Cette fiche contient trop d'images cumulées pour le stockage du navigateur. Pensez à vider quelques photos obsolètes avant d'enregistrer.");
+            }
+        }
+
+        function downloadBackupFile() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(database, null, 4));
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "moulins_data.json");
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        }
+
+        function sendContactEmail(event) {
+            event.preventDefault();
+            const name = document.getElementById('contact-name').value;
+            const email = document.getElementById('contact-email').value;
+            const message = document.getElementById('contact-message').value;
+            
+            const recipient = "vignalmarie@orange.fr"; 
+            const subject = encodeURIComponent("Contact Archives Moulins - de " + name);
+            
+            const body = encodeURIComponent(
+                "Bonjour Marie,\n\n" +
+                "Vous avez reçu un nouveau message depuis le site des Archives des Moulins.\n\n" +
+                "----------------------------------------\n" +
+                "👤 Expéditeur : " + name + "\n" +
+                "✉️ Email de réponse : " + email + "\n" +
+                "----------------------------------------\n\n" +
+                "📝 Message :\n" + message
+            );
+            
+            window.location.href = `mailto:${recipient}?subject=${subject}&body=${body}`;
+            alert("Votre logiciel de messagerie va s'ouvrir pour envoyer votre message à Marie Vignal.");
+            event.target.reset();
+        }
+    </script>
+</body>
+</html>
